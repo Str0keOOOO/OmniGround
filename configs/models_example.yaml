@@ -1,0 +1,25 @@
+# Copy this file to models.yaml and adjust paths/endpoints for your deployment.
+# Never put an API key in this file; use the environment variable named below.
+default_model: qwen3.7-plus
+
+models:
+  molmo2-er:
+    backend: molmo2
+    mode: local
+    source_path: third_party/molmo2
+    checkpoint: models/Molmo2-ER
+    hf_repo: allenai/Molmo2-ER
+    device: auto
+    device_map: auto
+    max_new_tokens: 512
+    default_temperature: 0.0
+
+  qwen3.7-plus:
+    backend: qwen3.7-plus
+    mode: api
+    base_url: https://your-openai-compatible-endpoint.example/v1
+    model_name: your-vlm-model
+    api_key_env: OPENAI_API_KEY
+    timeout_seconds: 120
+    extra_body:
+      enable_thinking: true

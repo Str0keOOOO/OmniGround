@@ -1,0 +1,31 @@
+[workspace]
+name = "omniground"
+version = "0.1.0"
+description = "Unified VLM grounding service"
+channels = ["conda-forge"]
+platforms = ["linux-64"]
+
+[dependencies]
+anyio = ">=4,<4.11"
+python = "3.11.*"
+fastapi = "*"
+httpx = "*"
+pillow = "*"
+pydantic = "*"
+python-multipart = "*"
+pyyaml = "*"
+pytest = "*"
+requests = "*"
+starlette = ">=0.46,<0.50"
+uvicorn = "*"
+
+[pypi-dependencies]
+omniground = { path = ".", editable = true }
+openai = ">=1.0"
+
+[tasks]
+setup = "python -m omniground.cli.setup_model"
+download-checkpoints = "python -m omniground.cli.download_checkpoints"
+server = "python -m omniground.cli.run_server"
+demo = "python tests/test_ground.py"
+test = "python tests/test_ground.py --model-id openai-compatible --task-instruction 'pick up the ipad' --port 18015"

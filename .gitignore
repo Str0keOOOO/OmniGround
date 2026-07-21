@@ -1,0 +1,24 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.pixi/
+.venv/
+dist/
+build/
+*.egg-info/
+
+# Model weights, caches, and runtime secrets must not be committed.
+models/
+checkpoints/
+*.safetensors
+*.bin
+*.pt
+*.pth
+.env
+
+# Deployment-specific model endpoints and local settings.
+configs/models.yaml

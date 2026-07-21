@@ -1,0 +1,184 @@
+"""FastAPI application exposing the model-independent OmniGround contract."""
+
+from __future__ import annotations
+
+import io
+import logging
+import time
+import uuid
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI, File, Form, Request, UploadFile
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
+from PIL import Image, UnidentifiedImageError
+from starlette.exceptions import HTTPException as StarletteHTTPException
+
+from .backends.base import GenerationRequest
+from .config import load_config
+from .errors import (
+    BackendInferenceError,
+    BackendUnavailableError,
+    InputValidationError,
+    OmniGroundError,
+    RequestTooLargeError,
+    UnsupportedImageError,
+)
+from .registry import ModelRegistry
+
+_LOG = logging.getLogger(__name__)
+_SUPPORTED_CONTENT_TYPES = {"image/jpeg", "image/jpg", "image/png"}
+_SUPPORTED_IMAGE_FORMATS = {"JPEG", "PNG"}
+DEFAULT_MAX_REQUEST_BYTES = 16 * 1024 * 1024
+
+
+def _error_response(error: OmniGroundError) -> JSONResponse:
+    return JSONResponse(
+        status_code=error.status_code,
+        content={"error": {"code": error.code, "message": error.message}},
+    )
+
+
+def _decode_image(content: bytes) -> Image.Image:
+    if not content:
+        raise InputValidationError("image must not be empty")
+    try:
+        with Image.open(io.BytesIO(content)) as source:
+            if source.format not in _SUPPORTED_IMAGE_FORMATS:
+                raise UnsupportedImageError("image must be a valid PNG or JPEG")
+            return source.convert("RGB")
+    except UnidentifiedImageError as exc:
+        raise UnsupportedImageError("image must be a valid PNG or JPEG") from exc
+
+
+def create_app(
+    *,
+    config_path: str | None = None,
+    default_model: str | None = None,
+    max_request_bytes: int = DEFAULT_MAX_REQUEST_BYTES,
+) -> FastAPI:
+    """Build an app without loading any configured model."""
+
+    if max_request_bytes <= 0:
+        raise ValueError("max_request_bytes must be positive")
+    config = load_config(config_path)
+    selected_default = default_model or config.default_model
+    registry = ModelRegistry(config)
+    registry.get_config(selected_default)
+
+    @asynccontextmanager
+    async def lifespan(app: FastAPI):
+        yield
+        registry.unload_all()
+
+    app = FastAPI(title="OmniGround", version="0.1.0", lifespan=lifespan)
+    app.state.registry = registry
+    app.state.default_model = selected_default
+    app.state.max_request_bytes = max_request_bytes
+
+    @app.exception_handler(OmniGroundError)
+    async def omniground_error_handler(_: Request, exc: OmniGroundError) -> JSONResponse:
+        return _error_response(exc)
+
+    @app.exception_handler(RequestValidationError)
+    async def request_validation_handler(_: Request, exc: RequestValidationError) -> JSONResponse:
+        issues = "; ".join(
+            f"{'.'.join(str(part) for part in issue['loc'])}: {issue['msg']}" for issue in exc.errors()
+        )
+        return _error_response(InputValidationError(f"invalid multipart request: {issues}"))
+
+    @app.exception_handler(StarletteHTTPException)
+    async def http_exception_handler(_: Request, exc: StarletteHTTPException) -> JSONResponse:
+        return _error_response(InputValidationError(str(exc.detail)))
+
+    @app.get("/health")
+    async def health() -> dict[str, str]:
+        return {"status": "ok"}
+
+    @app.get("/ready")
+    async def ready(model_id: str | None = None) -> dict[str, object]:
+        selected_model = model_id or selected_default
+        is_ready, detail = registry.probe(selected_model)
+        if not is_ready:
+            raise BackendUnavailableError(detail)
+        return {"status": "ready", "model_id": selected_model, "detail": detail}
+
+    @app.get("/v1/models")
+    async def models() -> dict[str, object]:
+        return {"object": "list", "data": registry.describe_models()}
+
+    async def generate(
+        request: Request,
+        image: UploadFile = File(...),
+        prompt: str = Form(...),
+        model_id: str = Form(...),
+        temperature: float | None = Form(None),
+    ) -> JSONResponse:
+        request_id = uuid.uuid4().hex
+        started_at = time.perf_counter()
+        image_object: Image.Image | None = None
+        try:
+            content_length = request.headers.get("content-length")
+            if content_length:
+                try:
+                    if int(content_length) > max_request_bytes:
+                        raise RequestTooLargeError(f"request exceeds the {max_request_bytes} byte size limit")
+                except ValueError as exc:
+                    raise InputValidationError("invalid Content-Length header") from exc
+            if image.content_type and image.content_type.lower() not in _SUPPORTED_CONTENT_TYPES:
+                raise UnsupportedImageError("image content type must be image/png or image/jpeg")
+            if not prompt.strip():
+                raise InputValidationError("prompt must not be empty")
+            if temperature is not None and temperature < 0:
+                raise InputValidationError("temperature must be greater than or equal to zero")
+
+            image_content = await image.read(max_request_bytes + 1)
+            if len(image_content) > max_request_bytes:
+                raise RequestTooLargeError(f"image exceeds the {max_request_bytes} byte size limit")
+            image_object = _decode_image(image_content)
+
+            backend, first_load = registry.get_backend(model_id)
+            result = backend.generate(
+                GenerationRequest(
+                    image=image_object,
+                    prompt=prompt,
+                    model_id=model_id,
+                    temperature=temperature,
+                )
+            )
+            elapsed_ms = (time.perf_counter() - started_at) * 1000
+            _LOG.info(
+                "generate success request_id=%s model_id=%s backend=%s first_load=%s elapsed_ms=%.1f "
+                "prompt_length=%s parser_and_validation=success",
+                request_id,
+                model_id,
+                registry.get_config(model_id).backend,
+                first_load,
+                elapsed_ms,
+                len(prompt),
+            )
+            response = JSONResponse(content=result.model_dump(mode="json"))
+            response.headers["X-Request-ID"] = request_id
+            return response
+        except OmniGroundError as exc:
+            elapsed_ms = (time.perf_counter() - started_at) * 1000
+            _LOG.warning(
+                "generate failed request_id=%s model_id=%s error_code=%s elapsed_ms=%.1f prompt_length=%s",
+                request_id,
+                model_id,
+                exc.code,
+                elapsed_ms,
+                len(prompt),
+            )
+            raise
+        except Exception as exc:
+            _LOG.exception("generate failed request_id=%s model_id=%s", request_id, model_id)
+            raise BackendInferenceError("Selected backend failed unexpectedly") from exc
+        finally:
+            if image_object is not None:
+                image_object.close()
+            await image.close()
+
+    app.post("/generate", response_model=None)(generate)
+    app.post("/v1/generate", response_model=None)(generate)
+    return app

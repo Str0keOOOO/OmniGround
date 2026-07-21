@@ -1,0 +1,40 @@
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "omniground"
+version = "0.1.0"
+description = "A unified HTTP grounding service for vision-language models"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Apache-2.0" }
+authors = [{ name = "OmniGround contributors" }]
+dependencies = [
+  "anyio>=4,<4.11",
+  "fastapi>=0.110",
+  "httpx>=0.27",
+  "openai>=1.0",
+  "pillow>=10.0",
+  "pydantic>=2.6",
+  "python-multipart>=0.0.9",
+  "PyYAML>=6.0",
+  "requests>=2.31",
+  "starlette>=0.46,<0.50",
+  "uvicorn>=0.27",
+]
+
+[project.optional-dependencies]
+molmo2 = ["torch", "transformers>=4.48"]
+download = ["huggingface-hub>=0.24"]
+dev = ["pytest>=8.0"]
+
+[project.scripts]
+omniground = "omniground.main:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/omniground"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
