@@ -29,7 +29,7 @@ def main() -> None:
     if missing:
         raise SystemExit("Missing base dependencies: " + ", ".join(missing) + ". Run `pixi install` and retry.")
     print("OmniGround base dependencies are available. Optional model dependencies were not installed.")
-    print("Next: set OPENAI_API_KEY and run `pixi run server -- --model-id openai-compatible`, or configure a local model.")
+    print("Next: set OPENAI_API_KEY and run `pixi run server -- --model-id qwen3.7-plus`, or configure a local model.")
 
 
 if __name__ == "__main__":

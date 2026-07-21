@@ -33,7 +33,7 @@ PROMPT_TEMPLATE_URL = (
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run one TiPToP-compatible OmniGround grounding request.")
     parser.add_argument("--task-instruction", default=None, help="Natural-language task instruction supplied by the user")
-    parser.add_argument("--model-id", default="openai-compatible")
+    parser.add_argument("--model-id", default="qwen3.7-plus")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8011)
     parser.add_argument("--config", default=None)

@@ -6,7 +6,8 @@ from threading import RLock
 
 from .backends.base import BaseBackend
 from .backends.molmo2 import Molmo2Backend
-from .backends.openai_compatible import OpenAICompatibleBackend
+from .backends.openai_backend import OpenAIBackend
+from .backends.qwen37plus import Qwen37PlusBackend
 from .config import AppConfig, ModelConfig
 from .errors import UnknownModelError
 
@@ -28,8 +29,10 @@ class ModelRegistry:
     def _create_backend(self, model_id: str, model: ModelConfig) -> BaseBackend:
         if model.backend == "molmo2":
             return Molmo2Backend(model, self.config)
-        if model.backend == "openai_compatible":
-            return OpenAICompatibleBackend(model)
+        if model.backend == "qwen3.7-plus":
+            return Qwen37PlusBackend(model)
+        if model.backend in ("openai_backend", "openai_compatible"):
+            return OpenAIBackend(model)
         raise UnknownModelError(f"Model '{model_id}' uses unsupported backend '{model.backend}'")
 
     def get_backend(self, model_id: str) -> tuple[BaseBackend, bool]:

@@ -17,7 +17,7 @@ models:
   qwen3.7-plus:
     backend: qwen3.7-plus
     mode: api
-    base_url: https://your-openai-compatible-endpoint.example/v1
+    base_url: https://your-vlm-api-endpoint.example/v1
     model_name: your-vlm-model
     api_key_env: OPENAI_API_KEY
     timeout_seconds: 120

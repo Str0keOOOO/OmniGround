@@ -1,4 +1,4 @@
-"""Adapter for OpenAI-compatible vision chat-completions services."""
+"""Generic adapter for OpenAI API chat-completions backends."""
 
 from __future__ import annotations
 
@@ -18,7 +18,7 @@ from ..parser import parse_and_validate
 from ..schemas import GroundingResult
 
 
-class OpenAICompatibleBackend(BaseBackend):
+class OpenAIBackend(BaseBackend):
     def __init__(self, config: ModelConfig, client: Any | None = None) -> None:
         super().__init__()
         self._config = config
@@ -28,19 +28,19 @@ class OpenAICompatibleBackend(BaseBackend):
     def load(self) -> None:
         parsed = urlparse(self._config.base_url or "")
         if parsed.scheme not in {"http", "https"} or not parsed.netloc:
-            raise BackendUnavailableError("openai_compatible backend requires a valid base_url")
+            raise BackendUnavailableError("openai backend requires a valid base_url")
         key_env = self._config.api_key_env or "OPENAI_API_KEY"
         self._api_key = os.environ.get(key_env)
         if not self._api_key:
-            raise BackendUnavailableError(f"openai_compatible backend requires environment variable {key_env}")
+            raise BackendUnavailableError(f"openai backend requires environment variable {key_env}")
         if not self._config.model_name:
-            raise BackendUnavailableError("openai_compatible backend requires model_name")
+            raise BackendUnavailableError("openai backend requires model_name")
         if self._client is None:
             try:
                 from openai import OpenAI
             except ImportError as exc:  # pragma: no cover - declared core dependency
                 raise BackendUnavailableError(
-                    "openai_compatible backend requires the 'openai' package; run `pixi install` and retry"
+                    "openai backend requires the 'openai' package; run `pixi install` and retry"
                 ) from exc
             self._client = OpenAI(
                 api_key=self._api_key,
@@ -80,7 +80,7 @@ class OpenAICompatibleBackend(BaseBackend):
             temperature = self._config.default_temperature
         extra_body = self._config.option("extra_body", {})
         if not isinstance(extra_body, Mapping):
-            raise BackendUnavailableError("openai_compatible extra_body must be a YAML mapping")
+            raise BackendUnavailableError("openai backend extra_body must be a YAML mapping")
         request_options: dict[str, Any] = {
             "model": self._config.model_name,
             "messages": [
@@ -103,8 +103,8 @@ class OpenAICompatibleBackend(BaseBackend):
             choices = getattr(completion, "choices", [])
             raw_text = self._content_to_text(choices[0].message.content) if choices else ""
         except Exception as exc:
-            raise BackendInferenceError(f"OpenAI-compatible backend failed: {exc.__class__.__name__}") from exc
+            raise BackendInferenceError(f"OpenAI backend failed: {exc.__class__.__name__}") from exc
         if not raw_text:
-            raise BackendInferenceError("OpenAI-compatible backend returned no message content")
+            raise BackendInferenceError("OpenAI backend returned no message content")
         self.last_raw_text = raw_text
         return parse_and_validate(raw_text)

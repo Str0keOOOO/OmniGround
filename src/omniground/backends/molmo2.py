@@ -2,7 +2,7 @@
 
 This adapter intentionally imports Torch and Transformers only when the
 configured local model is first selected. Deployments with incompatible CUDA
-or Transformers stacks should use the configured OpenAI-compatible API backend instead.
+or Transformers stacks should use the configured API backend instead.
 """
 
 from __future__ import annotations
@@ -76,7 +76,7 @@ class Molmo2Backend(BaseBackend):
         except ImportError as exc:
             raise BackendUnavailableError(
                 "Local Molmo2 requires optional dependencies. Install with `pip install -e .[molmo2]` "
-                "in a compatible CUDA environment, or use openai-compatible."
+                "in a compatible CUDA environment, or use the API backend."
             ) from exc
 
         device = self._config.device
