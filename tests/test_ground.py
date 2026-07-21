@@ -40,7 +40,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--image", type=Path, default=DEFAULT_IMAGE_PATH)
     parser.add_argument("--result-image", type=Path, default=DEFAULT_RESULT_IMAGE_PATH)
     parser.add_argument("--temperature", type=float, default=0.0)
-    parser.add_argument("--timeout-seconds", type=float, default=30.0)
+    parser.add_argument("--timeout-seconds", type=float, default=120.0)
     return parser.parse_args()
 
 

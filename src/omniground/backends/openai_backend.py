@@ -32,6 +32,9 @@ class OpenAIBackend(BaseBackend):
         key_env = self._config.api_key_env or "OPENAI_API_KEY"
         self._api_key = os.environ.get(key_env)
         if not self._api_key:
+            # Fallback: treat api_key_env as a literal key rather than an env var name
+            self._api_key = key_env
+        if not self._api_key:
             raise BackendUnavailableError(f"openai backend requires environment variable {key_env}")
         if not self._config.model_name:
             raise BackendUnavailableError("openai backend requires model_name")
