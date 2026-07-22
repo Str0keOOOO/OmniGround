@@ -12,8 +12,9 @@
 |---|---:|---|---|
 | image | 是 | PNG 或 JPEG 文件 | 一张非空图片；不支持的格式返回 415 |
 | prompt | 是 | UTF-8 字符串 | 完整任务 prompt，OmniGround 原样传给模型 |
-| model_id | 是 | string | 配置的模型键名，如 qwen3.7-plus 或 molmo2-er；未知键名返回 404 |
 | temperature | 否 | number >= 0 | 采样温度，省略时使用模型配置中的默认值 |
+
+模型在 OmniGround 服务启动时选择，`/generate` 请求不再需要 `model_id`；未指定启动参数时使用配置文件中的 `default_model`。
 
 ## 成功响应
 
@@ -73,7 +74,7 @@ git submodule update --init --recursive
 pixi run demo -- --model-id molmo2-er --task-instruction "pick up the yellow ball"
 ```
 
-运行后端
+运行后端（模型在服务启动时选择，未指定时使用 `configs/models.yaml` 的 `default_model`）
 
 ```bash
 pixi run server -- --host 0.0.0.0 --port 8011 --model-id qwen3.7-plus

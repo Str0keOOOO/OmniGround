@@ -96,12 +96,11 @@ def create_app(
         return {"status": "ok"}
 
     @app.get("/ready")
-    async def ready(model_id: str | None = None) -> dict[str, object]:
-        selected_model = model_id or selected_default
-        is_ready, detail = registry.probe(selected_model)
+    async def ready() -> dict[str, object]:
+        is_ready, detail = registry.probe(selected_default)
         if not is_ready:
             raise BackendUnavailableError(detail)
-        return {"status": "ready", "model_id": selected_model, "detail": detail}
+        return {"status": "ready", "detail": detail}
 
     @app.get("/v1/models")
     async def models() -> dict[str, object]:
@@ -111,7 +110,6 @@ def create_app(
         request: Request,
         image: UploadFile = File(...),
         prompt: str = Form(...),
-        model_id: str = Form(...),
         temperature: float | None = Form(None),
     ) -> JSONResponse:
         request_id = uuid.uuid4().hex
@@ -137,12 +135,12 @@ def create_app(
                 raise RequestTooLargeError(f"image exceeds the {max_request_bytes} byte size limit")
             image_object = _decode_image(image_content)
 
-            backend, first_load = registry.get_backend(model_id)
+            backend, first_load = registry.get_backend(selected_default)
             result = backend.generate(
                 GenerationRequest(
                     image=image_object,
                     prompt=prompt,
-                    model_id=model_id,
+                    model_id=selected_default,
                     temperature=temperature,
                 )
             )
@@ -151,8 +149,8 @@ def create_app(
                 "generate success request_id=%s model_id=%s backend=%s first_load=%s elapsed_ms=%.1f "
                 "prompt_length=%s parser_and_validation=success",
                 request_id,
-                model_id,
-                registry.get_config(model_id).backend,
+                selected_default,
+                registry.get_config(selected_default).backend,
                 first_load,
                 elapsed_ms,
                 len(prompt),
@@ -165,14 +163,14 @@ def create_app(
             _LOG.warning(
                 "generate failed request_id=%s model_id=%s error_code=%s elapsed_ms=%.1f prompt_length=%s",
                 request_id,
-                model_id,
+                selected_default,
                 exc.code,
                 elapsed_ms,
                 len(prompt),
             )
             raise
         except Exception as exc:
-            _LOG.exception("generate failed request_id=%s model_id=%s", request_id, model_id)
+            _LOG.exception("generate failed request_id=%s model_id=%s", request_id, selected_default)
             raise BackendInferenceError("Selected backend failed unexpectedly") from exc
         finally:
             if image_object is not None:

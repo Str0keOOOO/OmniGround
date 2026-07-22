@@ -41,7 +41,7 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help="Natural-language task instruction supplied by the user",
     )
-    parser.add_argument("--model-id", default="qwen3.7-plus")
+    parser.add_argument("--model-id", default=None, help="Model used by the temporary demo server")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8011)
     parser.add_argument("--config", default=None)
@@ -125,7 +125,6 @@ def draw_grounding_result(
     image: Image.Image,
     result: GroundingResult,
     task_instruction: str,
-    model_id: str,
     request_elapsed_seconds: float,
     output_path: Path,
 ) -> None:
@@ -143,9 +142,7 @@ def draw_grounding_result(
     )
     draw.text((8, 8), title, fill=(255, 255, 255), font=font)
 
-    info_text = (
-        f"Model: {model_id} | Request time: {request_elapsed_seconds:.3f} s"
-    )
+    info_text = f"Request time: {request_elapsed_seconds:.3f} s"
     info_box = draw.textbbox((8, 0), info_text, font=font)
     info_height = info_box[3] - info_box[1]
     info_top = height - info_height - 12
@@ -207,7 +204,6 @@ def draw_grounding_result(
 def wait_until_ready(
     session: requests.Session,
     base_url: str,
-    model_id: str,
     timeout_seconds: float,
 ) -> None:
     deadline = time.monotonic() + timeout_seconds
@@ -216,7 +212,6 @@ def wait_until_ready(
         try:
             response = session.get(
                 base_url + "/ready",
-                params={"model_id": model_id},
                 timeout=1,
             )
             if response.status_code == 200:
@@ -251,9 +246,9 @@ def run_grounding(
         args.host,
         "--port",
         str(args.port),
-        "--model-id",
-        args.model_id,
     ]
+    if args.model_id:
+        command.extend(["--model-id", args.model_id])
 
     if args.config:
         command.extend(["--config", args.config])
@@ -270,7 +265,6 @@ def run_grounding(
         wait_until_ready(
             session,
             base_url,
-            args.model_id,
             args.timeout_seconds,
         )
 
@@ -293,7 +287,6 @@ def run_grounding(
             },
             data={
                 "prompt": prompt,
-                "model_id": args.model_id,
                 "temperature": str(args.temperature),
             },
             timeout=args.timeout_seconds,
@@ -319,7 +312,6 @@ def run_grounding(
             image=image,
             result=result,
             task_instruction=task_instruction,
-            model_id=args.model_id,
             request_elapsed_seconds=request_elapsed_seconds,
             output_path=args.result_image,
         )

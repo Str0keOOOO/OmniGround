@@ -13,7 +13,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--config", default=None, help="Path to models.yaml")
     parser.add_argument("--host", default="0.0.0.0")
     parser.add_argument("--port", type=int, default=8011)
-    parser.add_argument("--model-id", default=None, help="Default model used by /ready when no query is supplied")
+    parser.add_argument("--model-id", default=None, help="Model selected for all requests; defaults to models.yaml")
     parser.add_argument("--max-request-bytes", type=int, default=DEFAULT_MAX_REQUEST_BYTES)
     parser.add_argument("--log-level", default="info", choices=["debug", "info", "warning", "error"])
     return parser.parse_args()

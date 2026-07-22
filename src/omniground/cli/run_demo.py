@@ -14,7 +14,7 @@ from ..schemas import GroundingResult
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Start OmniGround, submit one image, validate the JSON result, and stop.")
-    parser.add_argument("--model-id", default="qwen3.7-plus")
+    parser.add_argument("--model-id", default=None, help="Model used by the temporary demo server")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8011)
     parser.add_argument("--config", default=None)
@@ -37,9 +37,9 @@ def main() -> None:
         args.host,
         "--port",
         str(args.port),
-        "--model-id",
-        args.model_id,
     ]
+    if args.model_id:
+        command.extend(["--model-id", args.model_id])
     if args.config:
         command.extend(["--config", args.config])
     process = subprocess.Popen(command, cwd=PROJECT_ROOT)
@@ -52,7 +52,7 @@ def main() -> None:
     try:
         while time.monotonic() < deadline:
             try:
-                response = session.get(base_url + "/ready", params={"model_id": args.model_id}, timeout=1)
+                response = session.get(base_url + "/ready", timeout=1)
                 if response.status_code == 200:
                     break
             except requests.RequestException:
@@ -67,7 +67,7 @@ def main() -> None:
             response = session.post(
                 base_url + "/generate",
                 files={"image": (image_path.name, image_file, "image/png")},
-                data={"prompt": prompt, "model_id": args.model_id, "temperature": "0"},
+                data={"prompt": prompt, "temperature": "0"},
                 timeout=args.timeout_seconds,
             )
         response.raise_for_status()
