@@ -20,7 +20,7 @@ class GenerationRequest:
 
 
 class BaseBackend(ABC):
-    """A lazily loaded VLM adapter with no HTTP-server coupling."""
+    """A VLM adapter with no HTTP-server coupling."""
 
     def __init__(self) -> None:
         self._loaded = False
@@ -43,7 +43,7 @@ class BaseBackend(ABC):
 
     @abstractmethod
     def load(self) -> None:
-        """Load model resources lazily; do not call this at server import time."""
+        """Load the model resources when the registry requests them."""
 
     @abstractmethod
     def generate(self, request: GenerationRequest) -> GroundingResult:

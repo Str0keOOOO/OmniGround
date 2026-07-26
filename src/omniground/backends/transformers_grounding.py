@@ -1,4 +1,4 @@
-"""Shared lazy Transformers adapter for local embodied VLM checkpoints.
+"""Shared Transformers adapter for local embodied VLM checkpoints.
 
 RynnBrain 1.1 and RoboBrain 2.5 both publish Hugging Face checkpoints.  They
 need different model-side code, but their inference path is the same: a PIL
@@ -146,6 +146,10 @@ class TransformersGroundingBackend(BaseBackend):
     def _render_prompt(prompt: str) -> str:
         return f"{prompt}\n\n{_OUTPUT_CONTRACT}"
 
+    def _parse_output(self, raw_text: str, request: GenerationRequest) -> GroundingResult:
+        """Parse the shared JSON response contract used by non-RynnBrain models."""
+        return parse_and_validate(raw_text)
+
     def _chat_inputs(self, request: GenerationRequest) -> Any:
         assert self._processor is not None
         if self._family == "robobrain25":
@@ -236,7 +240,7 @@ class TransformersGroundingBackend(BaseBackend):
                 ) from exc
         self.last_raw_text = raw_text
         _LOG.debug("%s returned %s characters", self._family, len(raw_text))
-        return parse_and_validate(raw_text)
+        return self._parse_output(raw_text, request)
 
     def unload(self) -> None:
         self._model = None

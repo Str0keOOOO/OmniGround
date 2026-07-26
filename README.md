@@ -57,7 +57,7 @@ pixi run download-checkpoints -- rynnbrain1.1-2b
 setup 会初始化已检出的子模块并检查基础依赖，不会安装所有可选的 VLM 依赖。运行 RynnBrain 1.1 或 RoboBrain 2.5 前，请额外安装一次本地推理依赖：
 
 ```bash
-pip install -e .[embodied,download]
+pixi run pip install -e ".[embodied,download]"
 ```
 
 如果克隆需要 Molmo2 或 RoboBrain 2.5 源码，请使用：
@@ -74,19 +74,21 @@ git submodule update --init --recursive
 
 其余模块类比即可
 
-可以运行demo，最终结果在`examples/`
+可以运行 demo。每次运行会按模型保存在独立目录 `examples/results/<model-id>/<北京时间_耗时>/`，目录内包含标注图片和接口返回的 JSON，例如
+`20260726-145812-123456_BJT_gen-11.684s/20260726-145812-123456_BJT_gen-11.684s.{png,json}`。这些生成结果已被 Git 忽略。
+运行本地模型前，请将 `<gpu-id>` 替换为要使用的物理 GPU 编号；该 GPU 会在进程内显示为 `cuda:0`。
 
 ```bash
-pixi run demo -- --model-id rynnbrain1.1-2b --task-instruction "pick up the yellow ball"
+CUDA_VISIBLE_DEVICES=<gpu-id> pixi run demo -- --model-id rynnbrain1.1-2b --task-instruction "pick up the ipad"
 ```
 
 运行后端（模型在服务启动时选择，未指定时使用 `configs/models.yaml` 的 `default_model`）
 
 ```bash
 pixi run server -- --host 0.0.0.0 --port 8011 --model-id qwen3.7-plus
-pixi run server -- --model-id molmo2-er
-pixi run server -- --model-id rynnbrain1.1-2b
-pixi run server -- --model-id robobrain2.5-4b
+CUDA_VISIBLE_DEVICES=<gpu-id> pixi run server -- --model-id molmo2-er
+CUDA_VISIBLE_DEVICES=<gpu-id> pixi run server -- --model-id rynnbrain1.1-2b
+CUDA_VISIBLE_DEVICES=<gpu-id> pixi run server -- --model-id robobrain2.5-4b
 ```
 
 ## 模型与后端
@@ -99,10 +101,10 @@ configs/models.yaml是model_id到适配器的唯一映射，不含任何凭证�
 | rynnbrain1.1-2b | rynnbrain11 | local | RynnBrain 1.1 2B；笔记本优先选择 |
 | rynnbrain1.1-9b | rynnbrain11 | local | RynnBrain 1.1 9B |
 | robobrain2.5-4b | robobrain25 | local | RoboBrain 2.5 4B |
-| robobrain2.5-8b-nv | robobrain25 | local | RoboBrain 2.5 8B NVIDIA 变体 |
+| robobrain2.5-8b-nv（受限暂时没有下载） | robobrain25 | local | RoboBrain 2.5 8B NVIDIA 变体 |
 | qwen3.7-plus | qwen3.7-plus | api | 通过 OpenAI API 协议调用的 Qwen3.7-Plus VLM |
 |（通用 API） | openai_backend | api | 其他兼容 OpenAI API 的多模态 chat/completions 端点 |
 
-RynnBrain 1.1 与 RoboBrain 2.5 都只在首次 `/generate` 请求时加载；HTTP 输入和输出与其他后端完全一致。适配器会在保留用户任务 prompt 的同时补充统一 JSON 输出约束，保证响应始终是 `bboxes` 与 `predicates`。RoboBrain 2.5 的官方推理仓库作为子模块固定在 `af98c932aac9ff715d70da177088d7bb95573ff7`。
+选中的本地模型（RynnBrain、RoboBrain、Molmo2）会在服务启动时加载完成；因此 `/ready` 通过后，首次 `/generate` 不再包含模型加载时间。API 模型不会占用本地 GPU。RynnBrain 与 RoboBrain 适配器会把各自原生的坐标输出转换为统一的 `bboxes` 与 `predicates`。RoboBrain 2.5 的官方推理仓库作为子模块固定在 `af98c932aac9ff715d70da177088d7bb95573ff7`。
 
 本地内存有限时，先使用 `rynnbrain1.1-2b`。9B 与 8B 模型需要明显更多的显存/内存；没有合适 GPU 时可在 `configs/models.yaml` 把对应 `device` 设为 `cpu`，但推理会很慢。模型权重被下载到 `models/` 并保持 Git 忽略。

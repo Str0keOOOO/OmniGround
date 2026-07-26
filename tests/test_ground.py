@@ -10,21 +10,26 @@ from __future__ import annotations
 
 import argparse
 import io
+import json
 import subprocess
 import sys
 import time
+from datetime import datetime
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import requests
 from PIL import Image, ImageDraw, ImageFont
 
 from omniground.config import PROJECT_ROOT
+from omniground.config import load_config
 from omniground.schemas import GroundingResult
 
 
 EXAMPLES_DIR = PROJECT_ROOT / "examples"
 DEFAULT_IMAGE_PATH = EXAMPLES_DIR / "demo.png"
-DEFAULT_RESULT_IMAGE_PATH = EXAMPLES_DIR / "result.png"
+RESULTS_DIR = EXAMPLES_DIR / "results"
+BEIJING_TIMEZONE = ZoneInfo("Asia/Shanghai")
 PROMPT_TEMPLATE_PATH = EXAMPLES_DIR / "detect_and_translate.txt"
 PROMPT_TEMPLATE_URL = (
     "https://raw.githubusercontent.com/Str0keOOOO/tiptop/main/"
@@ -49,11 +54,37 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--result-image",
         type=Path,
-        default=DEFAULT_RESULT_IMAGE_PATH,
+        default=None,
+        help="Optional output path. Defaults to examples/results/<model-id>/.",
     )
     parser.add_argument("--temperature", type=float, default=0.0)
     parser.add_argument("--timeout-seconds", type=float, default=120.0)
     return parser.parse_args()
+
+
+def default_result_image_path(
+    model_id: str,
+    request_elapsed_seconds: float,
+) -> Path:
+    """Return the annotated image path for one model-specific demo run."""
+    generated_at = datetime.now(BEIJING_TIMEZONE)
+    timestamp = generated_at.strftime("%Y%m%d-%H%M%S-%f")
+    run_name = f"{timestamp}_BJT_gen-{request_elapsed_seconds:.3f}s"
+    return RESULTS_DIR / model_id / run_name / f"{run_name}.png"
+
+
+def result_json_path(image_path: Path) -> Path:
+    """Store the API response alongside its annotated image."""
+    return image_path.with_suffix(".json")
+
+
+def save_grounding_result_json(result: GroundingResult, output_path: Path) -> None:
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(
+        result.model_dump_json(indent=2),
+        encoding="utf-8",
+    )
+    print(f"Grounding JSON 结果已保存：{output_path}")
 
 
 def load_prompt_template() -> str:
@@ -228,6 +259,8 @@ def run_grounding(
     args: argparse.Namespace,
     task_instruction: str,
 ) -> GroundingResult:
+    config = load_config(args.config)
+    model_id = args.model_id or config.default_model
     template = load_prompt_template()
     prompt = render_prompt(template, task_instruction)
     image, image_bytes = prepare_tiptop_image(args.image)
@@ -302,10 +335,27 @@ def run_grounding(
             f"{request_elapsed_seconds:.3f} 秒"
         )
 
+        if not response.ok:
+            request_id = response.headers.get("X-Request-ID")
+            print(
+                "Grounding 服务返回错误："
+                f"HTTP {response.status_code}"
+                + (f"，request_id={request_id}" if request_id else "")
+            )
+            try:
+                print(json.dumps(response.json(), ensure_ascii=False, indent=2))
+            except ValueError:
+                print(response.text[:4096])
+
         response.raise_for_status()
 
         result = GroundingResult.model_validate(
             response.json()
+        )
+
+        output_path = args.result_image or default_result_image_path(
+            model_id=model_id,
+            request_elapsed_seconds=request_elapsed_seconds,
         )
 
         draw_grounding_result(
@@ -313,7 +363,11 @@ def run_grounding(
             result=result,
             task_instruction=task_instruction,
             request_elapsed_seconds=request_elapsed_seconds,
-            output_path=args.result_image,
+            output_path=output_path,
+        )
+        save_grounding_result_json(
+            result,
+            result_json_path(output_path),
         )
 
         return result
@@ -334,6 +388,18 @@ def test_render_prompt_inserts_task_instruction() -> None:
         'Task: "{task_instruction}". Return {{}}.',
         "pick up the ball",
     ) == 'Task: "pick up the ball". Return {}.'
+
+
+def test_default_result_image_path_uses_model_directory_and_metadata() -> None:
+    output_path = default_result_image_path(
+        model_id="rynnbrain1.1-2b",
+        request_elapsed_seconds=11.684,
+    )
+
+    assert output_path.parent.parent == RESULTS_DIR / "rynnbrain1.1-2b"
+    assert output_path.parent.name.endswith("_BJT_gen-11.684s")
+    assert output_path.name == f"{output_path.parent.name}.png"
+    assert result_json_path(output_path) == output_path.with_suffix(".json")
 
 
 def main() -> None:

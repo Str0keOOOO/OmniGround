@@ -57,7 +57,7 @@ def create_app(
     default_model: str | None = None,
     max_request_bytes: int = DEFAULT_MAX_REQUEST_BYTES,
 ) -> FastAPI:
-    """Build an app without loading any configured model."""
+    """Build an app and eagerly load the selected local model at startup."""
 
     if max_request_bytes <= 0:
         raise ValueError("max_request_bytes must be positive")
@@ -68,8 +68,20 @@ def create_app(
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
-        yield
-        registry.unload_all()
+        try:
+            selected_config = registry.get_config(selected_default)
+            if selected_config.mode == "local":
+                started_at = time.perf_counter()
+                _LOG.info("Eagerly loading local model %s during startup", selected_default)
+                registry.get_backend(selected_default)
+                _LOG.info(
+                    "Loaded local model %s during startup in %.1f ms",
+                    selected_default,
+                    (time.perf_counter() - started_at) * 1000,
+                )
+            yield
+        finally:
+            registry.unload_all()
 
     app = FastAPI(title="OmniGround", version="0.1.0", lifespan=lifespan)
     app.state.registry = registry
@@ -161,10 +173,12 @@ def create_app(
         except OmniGroundError as exc:
             elapsed_ms = (time.perf_counter() - started_at) * 1000
             _LOG.warning(
-                "generate failed request_id=%s model_id=%s error_code=%s elapsed_ms=%.1f prompt_length=%s",
+                "generate failed request_id=%s model_id=%s error_code=%s error_message=%s "
+                "elapsed_ms=%.1f prompt_length=%s",
                 request_id,
                 selected_default,
                 exc.code,
+                exc.message,
                 elapsed_ms,
                 len(prompt),
             )

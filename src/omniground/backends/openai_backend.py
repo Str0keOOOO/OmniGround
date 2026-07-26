@@ -74,6 +74,28 @@ class OpenAIBackend(BaseBackend):
             )
         return "" if content is None else str(content)
 
+    @staticmethod
+    def _request_error_detail(exc: Exception) -> str:
+        """Return a concise, actionable description of an API request failure."""
+        detail = str(exc).strip() or repr(exc)
+        response = getattr(exc, "response", None)
+        status_code = getattr(response, "status_code", None)
+
+        # Some OpenAI-compatible services put their useful error only in the
+        # response body.  Keep it bounded because this string is returned by
+        # our API and also written to server logs.
+        response_text = ""
+        if response is not None:
+            try:
+                response_text = response.text.strip()
+            except Exception:  # pragma: no cover - third-party response objects vary
+                pass
+        if response_text and response_text not in detail:
+            detail = f"{detail}; response body: {response_text}"
+
+        prefix = f"HTTP {status_code}: " if status_code is not None else ""
+        return (prefix + detail)[:4096]
+
     def generate(self, request: GenerationRequest) -> GroundingResult:
         self.ensure_loaded()
         assert self._client is not None
@@ -106,7 +128,9 @@ class OpenAIBackend(BaseBackend):
             choices = getattr(completion, "choices", [])
             raw_text = self._content_to_text(choices[0].message.content) if choices else ""
         except Exception as exc:
-            raise BackendInferenceError(f"OpenAI backend failed: {exc.__class__.__name__}") from exc
+            raise BackendInferenceError(
+                f"OpenAI backend request failed: {self._request_error_detail(exc)}"
+            ) from exc
         if not raw_text:
             raise BackendInferenceError("OpenAI backend returned no message content")
         self.last_raw_text = raw_text

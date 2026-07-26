@@ -31,7 +31,7 @@ def main() -> None:
         max_request_bytes=args.max_request_bytes,
     )
     logging.getLogger(__name__).info(
-        "Starting OmniGround on %s:%s with default model %s (models remain lazy-loaded)",
+        "Starting OmniGround on %s:%s with default model %s (selected local models load during startup)",
         args.host,
         args.port,
         app.state.default_model,

@@ -19,10 +19,15 @@ pytest = "*"
 requests = "*"
 starlette = ">=0.46,<0.50"
 uvicorn = "*"
+pip = ">=26.1.2,<27"
+setuptools = "<82"
 
 [pypi-dependencies]
 omniground = { path = ".", editable = true }
 openai = ">=1.0"
+torch = { version = "==2.12.1", index = "https://download.pytorch.org/whl/cu132" }
+torchvision = { version = "==0.27.1", index = "https://download.pytorch.org/whl/cu132" }
+accelerate = ">=1.14.0, <2"
 
 [tasks]
 setup = { cmd = "python -m omniground.cli.setup_model", depends-on = ["install"] }
