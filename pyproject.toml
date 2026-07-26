@@ -26,6 +26,7 @@ dependencies = [
 
 [project.optional-dependencies]
 molmo2 = ["torch", "transformers>=4.48"]
+embodied = ["torch", "transformers>=5.2.0", "qwen-vl-utils>=0.0.14", "opencv-python-headless>=4.10"]
 download = ["huggingface-hub>=0.24"]
 dev = ["pytest>=8.0"]
 

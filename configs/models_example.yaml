@@ -14,6 +14,57 @@ models:
     max_new_tokens: 512
     default_temperature: 0.0
 
+  # The smallest supported local option. It is the recommended first choice
+  # for a laptop with a modest GPU; use device: cpu only when GPU execution is
+  # unavailable (it will be much slower).
+  rynnbrain1.1-2b:
+    backend: rynnbrain11
+    mode: local
+    checkpoint: models/RynnBrain1.1-2B
+    hf_repo: Alibaba-DAMO-Academy/RynnBrain1.1-2B
+    model_id_hint: rynnbrain1.1-2b
+    device: auto
+    device_map: auto
+    max_new_tokens: 512
+    default_temperature: 0.0
+
+  rynnbrain1.1-9b:
+    backend: rynnbrain11
+    mode: local
+    checkpoint: models/RynnBrain1.1-9B
+    hf_repo: Alibaba-DAMO-Academy/RynnBrain1.1-9B
+    model_id_hint: rynnbrain1.1-9b
+    device: auto
+    device_map: auto
+    max_new_tokens: 512
+    default_temperature: 0.0
+
+  robobrain2.5-4b:
+    backend: robobrain25
+    mode: local
+    source_path: third_party/robobrain25
+    third_party_commit: af98c932aac9ff715d70da177088d7bb95573ff7
+    checkpoint: models/RoboBrain2.5-4B
+    hf_repo: BAAI/RoboBrain2.5-4B
+    model_id_hint: robobrain2.5-4b
+    device: auto
+    device_map: auto
+    max_new_tokens: 512
+    default_temperature: 0.0
+
+  robobrain2.5-8b-nv:
+    backend: robobrain25
+    mode: local
+    source_path: third_party/robobrain25
+    third_party_commit: af98c932aac9ff715d70da177088d7bb95573ff7
+    checkpoint: models/RoboBrain2.5-8B-NV
+    hf_repo: BAAI/RoboBrain2.5-8B-NV
+    model_id_hint: robobrain2.5-8b-nv
+    device: auto
+    device_map: auto
+    max_new_tokens: 512
+    default_temperature: 0.0
+
   qwen3.7-plus:
     backend: qwen3.7-plus
     mode: api

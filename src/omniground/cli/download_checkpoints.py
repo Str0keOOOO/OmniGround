@@ -24,11 +24,9 @@ def main() -> None:
         model = config.models[args.model_id]
     except KeyError as exc:
         raise SystemExit(f"Unknown model_id '{args.model_id}'") from exc
-    if model.backend != "molmo2":
-        raise SystemExit(f"Model '{args.model_id}' has no local checkpoint downloader (backend: {model.backend})")
     repo_id = model.option("hf_repo")
     if not repo_id:
-        raise SystemExit(f"Model '{args.model_id}' does not define hf_repo in its configuration")
+        raise SystemExit(f"Model '{args.model_id}' is not configured with a downloadable Hugging Face checkpoint")
     target = Path(args.output_dir) if args.output_dir else config.resolve_path(model.checkpoint)
     if target is None:
         raise SystemExit(f"Model '{args.model_id}' does not define checkpoint in its configuration")

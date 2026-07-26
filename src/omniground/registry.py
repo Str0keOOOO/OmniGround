@@ -8,6 +8,7 @@ from .backends.base import BaseBackend
 from .backends.molmo2 import Molmo2Backend
 from .backends.openai_backend import OpenAIBackend
 from .backends.qwen37plus import Qwen37PlusBackend
+from .backends.transformers_grounding import TransformersGroundingBackend
 from .config import AppConfig, ModelConfig
 from .errors import UnknownModelError
 
@@ -31,6 +32,10 @@ class ModelRegistry:
             return Molmo2Backend(model, self.config)
         if model.backend == "qwen3.7-plus":
             return Qwen37PlusBackend(model)
+        if model.backend == "rynnbrain11":
+            return TransformersGroundingBackend(model, self.config, "rynnbrain11")
+        if model.backend == "robobrain25":
+            return TransformersGroundingBackend(model, self.config, "robobrain25")
         if model.backend in ("openai_backend", "openai_compatible"):
             return OpenAIBackend(model)
         raise UnknownModelError(f"Model '{model_id}' uses unsupported backend '{model.backend}'")

@@ -1,3 +1,6 @@
 [submodule "third_party/molmo2"]
 	path = third_party/molmo2
 	url = https://github.com/allenai/molmo2
+[submodule "third_party/robobrain25"]
+	path = third_party/robobrain25
+	url = https://github.com/FlagOpen/RoboBrain2.5.git
