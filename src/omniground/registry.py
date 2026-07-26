@@ -7,6 +7,7 @@ from threading import RLock
 from .backends.base import BaseBackend
 from .backends.molmo2 import Molmo2Backend
 from .backends.openai_backend import OpenAIBackend
+from .backends.qwen35 import Qwen35Backend
 from .backends.qwen37plus import Qwen37PlusBackend
 from .backends.robobrain25 import RoboBrainBackend
 from .backends.rynnbrain11 import RynnBrainBackend
@@ -34,6 +35,8 @@ class ModelRegistry:
             return Molmo2Backend(model, self.config)
         if model.backend == "qwen3.7-plus":
             return Qwen37PlusBackend(model)
+        if model.backend == "qwen3.5":
+            return Qwen35Backend(model, self.config)
         if model.backend == "rynnbrain11":
             return RynnBrainBackend(model, self.config)
         if model.backend == "robobrain25":

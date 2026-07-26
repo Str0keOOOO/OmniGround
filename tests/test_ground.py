@@ -78,6 +78,11 @@ def result_json_path(image_path: Path) -> Path:
     return image_path.with_suffix(".json")
 
 
+def result_log_path(image_path: Path) -> Path:
+    """Store detailed client-side phase timings alongside one result."""
+    return image_path.with_suffix(".log")
+
+
 def save_grounding_result_json(result: GroundingResult, output_path: Path) -> None:
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(
@@ -85,6 +90,12 @@ def save_grounding_result_json(result: GroundingResult, output_path: Path) -> No
         encoding="utf-8",
     )
     print(f"Grounding JSON 结果已保存：{output_path}")
+
+
+def save_run_log(output_path: Path, lines: list[str]) -> None:
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    print(f"运行日志已保存：{output_path}")
 
 
 def load_prompt_template() -> str:
@@ -156,10 +167,11 @@ def draw_grounding_result(
     image: Image.Image,
     result: GroundingResult,
     task_instruction: str,
+    model_id: str,
     request_elapsed_seconds: float,
     output_path: Path,
 ) -> None:
-    """Draw normalized boxes and request timing on the preprocessed image."""
+    """Draw normalized boxes, model name, and request timing on the image."""
     canvas = image.copy()
     draw = ImageDraw.Draw(canvas)
     font = ImageFont.load_default()
@@ -173,7 +185,7 @@ def draw_grounding_result(
     )
     draw.text((8, 8), title, fill=(255, 255, 255), font=font)
 
-    info_text = f"Request time: {request_elapsed_seconds:.3f} s"
+    info_text = f"Model: {model_id} | Request time: {request_elapsed_seconds:.3f} s"
     info_box = draw.textbbox((8, 0), info_text, font=font)
     info_height = info_box[3] - info_box[1]
     info_top = height - info_height - 12
@@ -236,7 +248,8 @@ def wait_until_ready(
     session: requests.Session,
     base_url: str,
     timeout_seconds: float,
-) -> None:
+) -> float:
+    started_at = time.perf_counter()
     deadline = time.monotonic() + timeout_seconds
 
     while time.monotonic() < deadline:
@@ -246,7 +259,7 @@ def wait_until_ready(
                 timeout=1,
             )
             if response.status_code == 200:
-                return
+                return time.perf_counter() - started_at
         except requests.RequestException:
             pass
 
@@ -259,11 +272,18 @@ def run_grounding(
     args: argparse.Namespace,
     task_instruction: str,
 ) -> GroundingResult:
+    run_started_at = time.perf_counter()
+    phase_started_at = run_started_at
     config = load_config(args.config)
+    config_elapsed_seconds = time.perf_counter() - phase_started_at
     model_id = args.model_id or config.default_model
+    phase_started_at = time.perf_counter()
     template = load_prompt_template()
     prompt = render_prompt(template, task_instruction)
+    prompt_elapsed_seconds = time.perf_counter() - phase_started_at
+    phase_started_at = time.perf_counter()
     image, image_bytes = prepare_tiptop_image(args.image)
+    image_preprocess_elapsed_seconds = time.perf_counter() - phase_started_at
 
     print("\n===== task_instruction =====")
     print(task_instruction)
@@ -295,7 +315,7 @@ def run_grounding(
     session.trust_env = False
 
     try:
-        wait_until_ready(
+        server_ready_elapsed_seconds = wait_until_ready(
             session,
             base_url,
             args.timeout_seconds,
@@ -329,6 +349,17 @@ def run_grounding(
         request_elapsed_seconds = (
             time.perf_counter() - request_started_at
         )
+        backend_inference_header = response.headers.get("X-Backend-Inference-Ms")
+        backend_inference_seconds = (
+            float(backend_inference_header) / 1000
+            if backend_inference_header is not None
+            else None
+        )
+        backend_phase_timings = {
+            key.lower().removeprefix("x-backend-timing-").replace("-", "_"): float(value) / 1000
+            for key, value in response.headers.items()
+            if key.lower().startswith("x-backend-timing-")
+        }
 
         print(
             "Grounding 请求耗时："
@@ -349,25 +380,58 @@ def run_grounding(
 
         response.raise_for_status()
 
-        result = GroundingResult.model_validate(
-            response.json()
-        )
+        response_parse_started_at = time.perf_counter()
+        result = GroundingResult.model_validate(response.json())
+        response_parse_elapsed_seconds = time.perf_counter() - response_parse_started_at
 
         output_path = args.result_image or default_result_image_path(
             model_id=model_id,
             request_elapsed_seconds=request_elapsed_seconds,
         )
 
+        render_started_at = time.perf_counter()
         draw_grounding_result(
             image=image,
             result=result,
             task_instruction=task_instruction,
+            model_id=model_id,
             request_elapsed_seconds=request_elapsed_seconds,
             output_path=output_path,
         )
+        render_elapsed_seconds = time.perf_counter() - render_started_at
+
+        save_json_started_at = time.perf_counter()
         save_grounding_result_json(
             result,
             result_json_path(output_path),
+        )
+        save_json_elapsed_seconds = time.perf_counter() - save_json_started_at
+        total_elapsed_seconds = time.perf_counter() - run_started_at
+        save_run_log(
+            result_log_path(output_path),
+            [
+                f"timestamp_bjt={datetime.now(BEIJING_TIMEZONE).isoformat()}",
+                f"model_id={model_id}",
+                f"task_instruction={task_instruction}",
+                f"config_load_seconds={config_elapsed_seconds:.6f}",
+                f"prompt_load_and_render_seconds={prompt_elapsed_seconds:.6f}",
+                f"image_preprocess_seconds={image_preprocess_elapsed_seconds:.6f}",
+                f"server_startup_and_model_load_seconds={server_ready_elapsed_seconds:.6f}",
+                f"generate_http_request_seconds={request_elapsed_seconds:.6f}",
+                f"backend_inference_seconds={backend_inference_seconds:.6f}"
+                if backend_inference_seconds is not None
+                else "backend_inference_seconds=unavailable",
+                *[
+                    f"backend_{phase_name}_seconds={phase_seconds:.6f}"
+                    for phase_name, phase_seconds in sorted(backend_phase_timings.items())
+                ],
+                f"response_parse_seconds={response_parse_elapsed_seconds:.6f}",
+                f"render_output_image_seconds={render_elapsed_seconds:.6f}",
+                f"save_output_json_seconds={save_json_elapsed_seconds:.6f}",
+                f"total_demo_seconds={total_elapsed_seconds:.6f}",
+                "note=generate_http_request includes image upload, server inference, and response transfer;",
+                "note=server_startup_and_model_load ends when /ready returns 200.",
+            ],
         )
 
         return result
@@ -400,6 +464,7 @@ def test_default_result_image_path_uses_model_directory_and_metadata() -> None:
     assert output_path.parent.name.endswith("_BJT_gen-11.684s")
     assert output_path.name == f"{output_path.parent.name}.png"
     assert result_json_path(output_path) == output_path.with_suffix(".json")
+    assert result_log_path(output_path) == output_path.with_suffix(".log")
 
 
 def main() -> None:

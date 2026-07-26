@@ -74,8 +74,8 @@ git submodule update --init --recursive
 
 其余模块类比即可
 
-可以运行 demo。每次运行会按模型保存在独立目录 `examples/results/<model-id>/<北京时间_耗时>/`，目录内包含标注图片和接口返回的 JSON，例如
-`20260726-145812-123456_BJT_gen-11.684s/20260726-145812-123456_BJT_gen-11.684s.{png,json}`。这些生成结果已被 Git 忽略。
+可以运行 demo。每次运行会按模型保存在独立目录 `examples/results/<model-id>/<北京时间_耗时>/`，目录内包含标注图片、接口返回的 JSON 和详细耗时日志，例如
+`20260726-145812-123456_BJT_gen-11.684s/20260726-145812-123456_BJT_gen-11.684s.{png,json,log}`。日志会区分服务启动/模型加载、`/generate` 请求、响应解析和结果保存等阶段。这些生成结果已被 Git 忽略。
 运行本地模型前，请将 `<gpu-id>` 替换为要使用的物理 GPU 编号；该 GPU 会在进程内显示为 `cuda:0`。
 
 ```bash
@@ -89,6 +89,10 @@ pixi run server -- --host 0.0.0.0 --port 8011 --model-id qwen3.7-plus
 CUDA_VISIBLE_DEVICES=<gpu-id> pixi run server -- --model-id molmo2-er
 CUDA_VISIBLE_DEVICES=<gpu-id> pixi run server -- --model-id rynnbrain1.1-2b
 CUDA_VISIBLE_DEVICES=<gpu-id> pixi run server -- --model-id robobrain2.5-4b
+CUDA_VISIBLE_DEVICES=<gpu-id> pixi run server -- --model-id qwen3.5-9b
+CUDA_VISIBLE_DEVICES=<gpu-id> pixi run server -- --model-id qwen3.5-4b
+CUDA_VISIBLE_DEVICES=<gpu-id> pixi run server -- --model-id qwen3.5-2b
+CUDA_VISIBLE_DEVICES=<gpu-id> pixi run server -- --model-id qwen3.5-0.8b
 ```
 
 ## 模型与后端
@@ -98,13 +102,17 @@ configs/models.yaml是model_id到适配器的唯一映射，不含任何凭证�
 | model_id | Backend | Mode | 用途 |
 |---|---|---|---|
 | molmo2-er | molmo2 | local | 本地 Molmo2 检查点 |
-| rynnbrain1.1-2b | rynnbrain11 | local | RynnBrain 1.1 2B；笔记本优先选择 |
-| rynnbrain1.1-9b | rynnbrain11 | local | RynnBrain 1.1 9B |
-| robobrain2.5-4b | robobrain25 | local | RoboBrain 2.5 4B |
+| rynnbrain1.1-2b（无法满足需求） | rynnbrain11 | local | RynnBrain 1.1 2B |
+| rynnbrain1.1-9b（无法满足需求） | rynnbrain11 | local | RynnBrain 1.1 9B |
+| robobrain2.5-4b（无法满足需求） | robobrain25 | local | RoboBrain 2.5 4B |
 | robobrain2.5-8b-nv（受限暂时没有下载） | robobrain25 | local | RoboBrain 2.5 8B NVIDIA 变体 |
+| qwen3.5-9b | qwen3.5 | local | Qwen/Qwen3.5-9B 本地多模态模型 |
+| qwen3.5-4b | qwen3.5 | local | Qwen/Qwen3.5-4B 本地多模态模型 |
+| qwen3.5-2b | qwen3.5 | local | Qwen/Qwen3.5-2B 本地多模态模型 |
+| qwen3.5-0.8b | qwen3.5 | local | Qwen/Qwen3.5-0.8B 本地多模态模型 |
 | qwen3.7-plus | qwen3.7-plus | api | 通过 OpenAI API 协议调用的 Qwen3.7-Plus VLM |
 |（通用 API） | openai_backend | api | 其他兼容 OpenAI API 的多模态 chat/completions 端点 |
 
-选中的本地模型（RynnBrain、RoboBrain、Molmo2）会在服务启动时加载完成；因此 `/ready` 通过后，首次 `/generate` 不再包含模型加载时间。API 模型不会占用本地 GPU。RynnBrain 与 RoboBrain 适配器会把各自原生的坐标输出转换为统一的 `bboxes` 与 `predicates`。RoboBrain 2.5 的官方推理仓库作为子模块固定在 `af98c932aac9ff715d70da177088d7bb95573ff7`。
+选中的本地模型（RynnBrain、RoboBrain、Molmo2、Qwen3.5）会在服务启动时加载完成；因此 `/ready` 通过后，首次 `/generate` 不再包含模型加载时间。API 模型不会占用本地 GPU。RynnBrain 与 RoboBrain 适配器会把各自原生的坐标输出转换为统一的 `bboxes` 与 `predicates`。RoboBrain 2.5 的官方推理仓库作为子模块固定在 `af98c932aac9ff715d70da177088d7bb95573ff7`。
 
 本地内存有限时，先使用 `rynnbrain1.1-2b`。9B 与 8B 模型需要明显更多的显存/内存；没有合适 GPU 时可在 `configs/models.yaml` 把对应 `device` 设为 `cpu`，但推理会很慢。模型权重被下载到 `models/` 并保持 Git 忽略。

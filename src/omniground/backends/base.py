@@ -26,6 +26,7 @@ class BaseBackend(ABC):
         self._loaded = False
         self._load_lock = RLock()
         self.last_raw_text: str | None = None
+        self.last_timing: dict[str, float] = {}
 
     @property
     def is_loaded(self) -> bool:

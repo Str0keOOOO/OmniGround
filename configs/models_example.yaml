@@ -65,6 +65,50 @@ models:
     max_new_tokens: 512
     default_temperature: 0.0
 
+  qwen3.5-9b:
+    backend: qwen3.5
+    mode: local
+    checkpoint: models/Qwen3.5-9B
+    hf_repo: Qwen/Qwen3.5-9B
+    model_id_hint: qwen3.5-9b
+    device: auto
+    device_map: auto
+    max_new_tokens: 2048
+    default_temperature: 0.0
+
+  qwen3.5-4b:
+    backend: qwen3.5
+    mode: local
+    checkpoint: models/Qwen3.5-4B
+    hf_repo: Qwen/Qwen3.5-4B
+    model_id_hint: qwen3.5-4b
+    device: auto
+    device_map: auto
+    max_new_tokens: 2048
+    default_temperature: 0.0
+
+  qwen3.5-2b:
+    backend: qwen3.5
+    mode: local
+    checkpoint: models/Qwen3.5-2B
+    hf_repo: Qwen/Qwen3.5-2B
+    model_id_hint: qwen3.5-2b
+    device: auto
+    device_map: auto
+    max_new_tokens: 2048
+    default_temperature: 0.0
+
+  qwen3.5-0.8b:
+    backend: qwen3.5
+    mode: local
+    checkpoint: models/Qwen3.5-0.8B
+    hf_repo: Qwen/Qwen3.5-0.8B
+    model_id_hint: qwen3.5-0.8b
+    device: auto
+    device_map: auto
+    max_new_tokens: 2048
+    default_temperature: 0.0
+
   qwen3.7-plus:
     backend: qwen3.7-plus
     mode: api

@@ -148,6 +148,7 @@ def create_app(
             image_object = _decode_image(image_content)
 
             backend, first_load = registry.get_backend(selected_default)
+            inference_started_at = time.perf_counter()
             result = backend.generate(
                 GenerationRequest(
                     image=image_object,
@@ -156,19 +157,24 @@ def create_app(
                     temperature=temperature,
                 )
             )
+            inference_ms = (time.perf_counter() - inference_started_at) * 1000
             elapsed_ms = (time.perf_counter() - started_at) * 1000
             _LOG.info(
                 "generate success request_id=%s model_id=%s backend=%s first_load=%s elapsed_ms=%.1f "
-                "prompt_length=%s parser_and_validation=success",
+                "inference_ms=%.1f prompt_length=%s parser_and_validation=success",
                 request_id,
                 selected_default,
                 registry.get_config(selected_default).backend,
                 first_load,
                 elapsed_ms,
+                inference_ms,
                 len(prompt),
             )
             response = JSONResponse(content=result.model_dump(mode="json"))
             response.headers["X-Request-ID"] = request_id
+            response.headers["X-Backend-Inference-Ms"] = f"{inference_ms:.3f}"
+            for phase_name, phase_seconds in backend.last_timing.items():
+                response.headers[f"X-Backend-Timing-{phase_name.replace('_', '-')}"] = f"{phase_seconds * 1000:.3f}"
             return response
         except OmniGroundError as exc:
             elapsed_ms = (time.perf_counter() - started_at) * 1000
