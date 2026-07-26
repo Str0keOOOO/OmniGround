@@ -17,14 +17,14 @@ from pathlib import Path
 from threading import Lock
 from typing import Any, Literal
 
-from .base import BaseBackend, GenerationRequest
-from ..config import AppConfig, ModelConfig
-from ..errors import BackendInferenceError, BackendUnavailableError
-from ..parser import parse_and_validate
-from ..schemas import GroundingResult
+from ..base import BaseBackend, GenerationRequest
+from ...core.config import AppConfig, ModelConfig
+from ...core.errors import BackendInferenceError, BackendUnavailableError
+from ...core.parsing import parse_and_validate
+from ...core.contracts import GroundingResult
 
 _LOG = logging.getLogger(__name__)
-ModelFamily = Literal["rynnbrain11", "robobrain25"]
+ModelFamily = Literal["rynnbrain", "robobrain"]
 
 _OUTPUT_CONTRACT = """
 
@@ -68,7 +68,7 @@ class TransformersGroundingBackend(BaseBackend):
                 f"Checkpoint is missing at {checkpoint}. "
                 f"Run `pixi run download-checkpoints -- {self._config.option('model_id_hint', 'MODEL_ID')}`."
             )
-        if self._family == "robobrain25":
+        if self._family == "robobrain":
             source = self._source_path
             if source is None or not (source / "inference.py").is_file():
                 raise BackendUnavailableError(
@@ -105,14 +105,14 @@ class TransformersGroundingBackend(BaseBackend):
         kwargs: dict[str, Any] = {}
         if device_map:
             kwargs["device_map"] = device_map
-        if self._family == "rynnbrain11":
+        if self._family == "rynnbrain":
             # RynnBrain 1.1 publishes custom model code alongside each checkpoint.
             kwargs["trust_remote_code"] = True
-        if self._family == "robobrain25":
+        if self._family == "robobrain":
             source = self._source_path
             assert source is not None
             module_path = source / "inference.py"
-            spec = importlib.util.spec_from_file_location("omniground_robobrain25", module_path)
+            spec = importlib.util.spec_from_file_location("omniground_robobrain", module_path)
             if spec is None or spec.loader is None:  # pragma: no cover - guarded by _preflight
                 raise BackendUnavailableError(f"Cannot load RoboBrain 2.5 source from {module_path}")
             module = importlib.util.module_from_spec(spec)
@@ -152,7 +152,7 @@ class TransformersGroundingBackend(BaseBackend):
 
     def _chat_inputs(self, request: GenerationRequest) -> Any:
         assert self._processor is not None
-        if self._family == "robobrain25":
+        if self._family == "robobrain":
             assert self._robobrain_module is not None
             temporary_image = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
             temporary_path = Path(temporary_image.name)
@@ -196,7 +196,7 @@ class TransformersGroundingBackend(BaseBackend):
             "return_dict": True,
             "return_tensors": "pt",
         }
-        if self._family == "rynnbrain11":
+        if self._family == "rynnbrain":
             template_kwargs["enable_thinking"] = False
         try:
             return self._processor.apply_chat_template(messages, **template_kwargs)

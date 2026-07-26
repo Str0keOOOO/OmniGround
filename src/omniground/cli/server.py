@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 import logging
 
-from ..server import DEFAULT_MAX_REQUEST_BYTES, create_app
+from ..api.app import DEFAULT_MAX_REQUEST_BYTES, create_app
 
 
 def parse_args() -> argparse.Namespace:

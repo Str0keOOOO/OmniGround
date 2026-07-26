@@ -4,12 +4,12 @@ from __future__ import annotations
 
 import re
 
-from ..config import AppConfig, ModelConfig
-from ..errors import ModelOutputParseError
-from ..schemas import GroundingResult
-from ..validation import validate_grounding_result
-from .base import GenerationRequest
-from .transformers_grounding import TransformersGroundingBackend
+from ...core.config import AppConfig, ModelConfig
+from ...core.errors import ModelOutputParseError
+from ...core.contracts import GroundingResult
+from ...core.validation import validate_grounding_result
+from ..base import GenerationRequest
+from .transformers import TransformersGroundingBackend
 
 
 _TASK_INSTRUCTION = re.compile(
@@ -76,7 +76,7 @@ class RynnBrainBackend(TransformersGroundingBackend):
     """Use RynnBrain's documented grounding prompt and convert its output."""
 
     def __init__(self, config: ModelConfig, app_config: AppConfig) -> None:
-        super().__init__(config, app_config, "rynnbrain11")
+        super().__init__(config, app_config, "rynnbrain")
 
     @staticmethod
     def _render_prompt(prompt: str) -> str:

@@ -11,11 +11,11 @@ from urllib.parse import urlparse
 
 from PIL import Image
 
-from .base import BaseBackend, GenerationRequest
-from ..config import ModelConfig
-from ..errors import BackendInferenceError, BackendUnavailableError
-from ..parser import parse_and_validate
-from ..schemas import GroundingResult
+from ..base import BaseBackend, GenerationRequest
+from ...core.config import ModelConfig
+from ...core.errors import BackendInferenceError, BackendUnavailableError
+from ...core.parsing import parse_and_validate
+from ...core.contracts import GroundingResult
 
 
 class OpenAIBackend(BaseBackend):

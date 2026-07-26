@@ -31,9 +31,9 @@ accelerate = ">=1.14.0, <2"
 transformers = ">=5.2.0"
 
 [tasks]
-setup = { cmd = "python -m omniground.cli.setup_model", depends-on = ["install"] }
+setup = { cmd = "python -m omniground.cli.setup", depends-on = ["install"] }
 install = "pixi install"
-download-checkpoints = "python -m omniground.cli.download_checkpoints"
-server = "python -m omniground.cli.run_server"
-demo = "python tests/test_ground.py"
-test = "python tests/test_ground.py --task-instruction 'pick up the ipad' --port 18015"
+download-checkpoints = "python -m omniground.cli.checkpoints"
+server = "python -m omniground.cli.server"
+demo = "python -m omniground.cli.demo"
+test = "pytest"

@@ -97,22 +97,18 @@ CUDA_VISIBLE_DEVICES=<gpu-id> pixi run server -- --model-id qwen3.5-0.8b
 
 ## 模型与后端
 
-configs/models.yaml是model_id到适配器的唯一映射，不含任何凭证信息，包含api密钥，需要自己根据models_example.yaml复制一份。
+`configs/models.yaml` 是 `model_id` 到适配器的唯一映射，不应包含凭证；请从 `configs/models.example.yaml` 复制后按部署环境填写。
 
 | model_id | Backend | Mode | 用途 |
 |---|---|---|---|
-| molmo2-er | molmo2 | local | 本地 Molmo2 检查点 |
-| rynnbrain1.1-2b（无法满足需求） | rynnbrain11 | local | RynnBrain 1.1 2B |
-| rynnbrain1.1-9b（无法满足需求） | rynnbrain11 | local | RynnBrain 1.1 9B |
-| robobrain2.5-4b（无法满足需求） | robobrain25 | local | RoboBrain 2.5 4B |
-| robobrain2.5-8b-nv（受限暂时没有下载） | robobrain25 | local | RoboBrain 2.5 8B NVIDIA 变体 |
-| qwen3.5-9b | qwen3.5 | local | Qwen/Qwen3.5-9B 本地多模态模型 |
-| qwen3.5-4b | qwen3.5 | local | Qwen/Qwen3.5-4B 本地多模态模型 |
-| qwen3.5-2b | qwen3.5 | local | Qwen/Qwen3.5-2B 本地多模态模型 |
-| qwen3.5-0.8b | qwen3.5 | local | Qwen/Qwen3.5-0.8B 本地多模态模型 |
-| qwen3.7-plus | qwen3.7-plus | api | 通过 OpenAI API 协议调用的 Qwen3.7-Plus VLM |
-|（通用 API） | openai_backend | api | 其他兼容 OpenAI API 的多模态 chat/completions 端点 |
-
-选中的本地模型（RynnBrain、RoboBrain、Molmo2、Qwen3.5）会在服务启动时加载完成；因此 `/ready` 通过后，首次 `/generate` 不再包含模型加载时间。API 模型不会占用本地 GPU。RynnBrain 与 RoboBrain 适配器会把各自原生的坐标输出转换为统一的 `bboxes` 与 `predicates`。RoboBrain 2.5 的官方推理仓库作为子模块固定在 `af98c932aac9ff715d70da177088d7bb95573ff7`。
-
-本地内存有限时，先使用 `rynnbrain1.1-2b`。9B 与 8B 模型需要明显更多的显存/内存；没有合适 GPU 时可在 `configs/models.yaml` 把对应 `device` 设为 `cpu`，但推理会很慢。模型权重被下载到 `models/` 并保持 Git 忽略。
+| molmo2-er（无法满足需求） | molmo2 | local | 本地 Molmo2 检查点 |
+| rynnbrain1.1-2b（无法满足需求） | rynnbrain | local | RynnBrain 1.1 2B |
+| rynnbrain1.1-9b（无法满足需求） | rynnbrain | local | RynnBrain 1.1 9B |
+| robobrain2.5-4b（无法满足需求） | robobrain | local | RoboBrain 2.5 4B |
+| robobrain2.5-8b-nv（受限暂时没有下载） | robobrain | local | RoboBrain 2.5 8B NVIDIA 变体 |
+| qwen3.5-9b（推荐） | qwen35 | local | Qwen/Qwen3.5-9B 本地多模态模型 |
+| qwen3.5-4b | qwen35 | local | Qwen/Qwen3.5-4B 本地多模态模型 |
+| qwen3.5-2b | qwen35 | local | Qwen/Qwen3.5-2B 本地多模态模型 |
+| qwen3.5-0.8b | qwen35 | local | Qwen/Qwen3.5-0.8B 本地多模态模型 |
+| qwen3.7-plus | openai | api | 通过 OpenAI 兼容协议调用的 Qwen3.7-Plus VLM |
+|（通用 API） | openai | api | 其他兼容 OpenAI API 的多模态 chat/completions 端点 |

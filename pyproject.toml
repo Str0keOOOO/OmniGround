@@ -31,7 +31,7 @@ download = ["huggingface-hub>=0.24"]
 dev = ["pytest>=8.0"]
 
 [project.scripts]
-omniground = "omniground.main:main"
+omniground = "omniground.cli.server:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/omniground"]

@@ -21,16 +21,15 @@ from zoneinfo import ZoneInfo
 import requests
 from PIL import Image, ImageDraw, ImageFont
 
-from omniground.config import PROJECT_ROOT
-from omniground.config import load_config
-from omniground.schemas import GroundingResult
+from ..core.config import PROJECT_ROOT, load_config
+from ..core.contracts import GroundingResult
 
 
 EXAMPLES_DIR = PROJECT_ROOT / "examples"
-DEFAULT_IMAGE_PATH = EXAMPLES_DIR / "demo.png"
+DEFAULT_IMAGE_PATH = EXAMPLES_DIR / "input" / "demo.png"
 RESULTS_DIR = EXAMPLES_DIR / "results"
 BEIJING_TIMEZONE = ZoneInfo("Asia/Shanghai")
-PROMPT_TEMPLATE_PATH = EXAMPLES_DIR / "detect_and_translate.txt"
+PROMPT_TEMPLATE_PATH = EXAMPLES_DIR / "prompts" / "detect_and_translate.txt"
 PROMPT_TEMPLATE_URL = (
     "https://raw.githubusercontent.com/Str0keOOOO/tiptop/main/"
     "tiptop/perception/prompts/detect_and_translate.txt"
@@ -294,7 +293,7 @@ def run_grounding(
     command = [
         sys.executable,
         "-m",
-        "omniground.cli.run_server",
+        "omniground.cli.server",
         "--host",
         args.host,
         "--port",
@@ -445,26 +444,6 @@ def run_grounding(
         except subprocess.TimeoutExpired:
             process.kill()
             process.wait(timeout=10)
-
-
-def test_render_prompt_inserts_task_instruction() -> None:
-    assert render_prompt(
-        'Task: "{task_instruction}". Return {{}}.',
-        "pick up the ball",
-    ) == 'Task: "pick up the ball". Return {}.'
-
-
-def test_default_result_image_path_uses_model_directory_and_metadata() -> None:
-    output_path = default_result_image_path(
-        model_id="rynnbrain1.1-2b",
-        request_elapsed_seconds=11.684,
-    )
-
-    assert output_path.parent.parent == RESULTS_DIR / "rynnbrain1.1-2b"
-    assert output_path.parent.name.endswith("_BJT_gen-11.684s")
-    assert output_path.name == f"{output_path.parent.name}.png"
-    assert result_json_path(output_path) == output_path.with_suffix(".json")
-    assert result_log_path(output_path) == output_path.with_suffix(".log")
 
 
 def main() -> None:

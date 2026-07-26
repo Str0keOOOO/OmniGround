@@ -7,7 +7,7 @@ import importlib.util
 import shutil
 import subprocess
 
-from ..config import PROJECT_ROOT
+from ..core.config import PROJECT_ROOT
 
 
 def main() -> None:

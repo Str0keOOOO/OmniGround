@@ -10,12 +10,12 @@ from pathlib import Path
 from threading import Lock
 from typing import Any
 
-from .base import BaseBackend, GenerationRequest
-from ..config import AppConfig, ModelConfig
-from ..errors import BackendInferenceError, BackendUnavailableError, ModelOutputParseError
-from ..parser import _extract_json_objects, parse_and_validate_last_valid_json
-from ..schemas import GroundingResult
-from ..validation import validate_grounding_result
+from ..base import BaseBackend, GenerationRequest
+from ...core.config import AppConfig, ModelConfig
+from ...core.errors import BackendInferenceError, BackendUnavailableError, ModelOutputParseError
+from ...core.parsing import _extract_json_objects, parse_and_validate_last_valid_json
+from ...core.contracts import GroundingResult
+from ...core.validation import validate_grounding_result
 
 
 _THINKING_BLOCK = re.compile(r"<think>.*?</think>\s*", flags=re.IGNORECASE | re.DOTALL)
@@ -99,7 +99,7 @@ def parse_qwen35_grounding(raw_text: str, task_prompt: str = "") -> GroundingRes
 
 
 class Qwen35Backend(BaseBackend):
-    """Run Qwen3.5-9B locally with its native multimodal chat template."""
+    """Run a configured Qwen3.5 checkpoint with its native chat template."""
 
     def __init__(self, config: ModelConfig, app_config: AppConfig) -> None:
         super().__init__()
@@ -120,7 +120,8 @@ class Qwen35Backend(BaseBackend):
         if checkpoint is None or not checkpoint.is_dir() or not (checkpoint / "config.json").is_file():
             raise BackendUnavailableError(
                 f"Checkpoint is missing at {checkpoint}. "
-                "Run `pixi run download-checkpoints -- qwen3.5-9b`."
+                "Run `pixi run download-checkpoints -- "
+                f"{self._config.option('model_id_hint', 'MODEL_ID')}`."
             )
 
     def check_ready(self) -> tuple[bool, str]:
@@ -128,7 +129,7 @@ class Qwen35Backend(BaseBackend):
             self._preflight()
         except BackendUnavailableError as exc:
             return False, exc.message
-        return True, "Qwen3.5-9B files are present; model loads during server startup"
+        return True, "Qwen3.5 checkpoint files are present; model loads during server startup"
 
     def load(self) -> None:
         self._preflight()
@@ -139,7 +140,7 @@ class Qwen35Backend(BaseBackend):
             from transformers import AutoModelForMultimodalLM, AutoProcessor
         except ImportError as exc:
             raise BackendUnavailableError(
-                "Qwen3.5-9B requires Transformers multimodal support. Run `pixi install` and retry."
+                "Qwen3.5 requires Transformers multimodal support. Run `pixi install` and retry."
             ) from exc
 
         device = self._config.device
@@ -233,7 +234,7 @@ class Qwen35Backend(BaseBackend):
                 )[0]
                 timing["decode_output"] = time.perf_counter() - phase_started_at
             except Exception as exc:
-                raise BackendInferenceError(f"Qwen3.5-9B local inference failed: {exc.__class__.__name__}") from exc
+                raise BackendInferenceError(f"Qwen3.5 local inference failed: {exc.__class__.__name__}") from exc
 
         self.last_raw_text = raw_text
         cleaned_text = _THINKING_BLOCK.sub("", raw_text).strip()

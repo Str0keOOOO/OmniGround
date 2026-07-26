@@ -4,16 +4,14 @@ from __future__ import annotations
 
 from threading import RLock
 
-from .backends.base import BaseBackend
-from .backends.molmo2 import Molmo2Backend
-from .backends.openai_backend import OpenAIBackend
-from .backends.qwen35 import Qwen35Backend
-from .backends.qwen37plus import Qwen37PlusBackend
-from .backends.robobrain25 import RoboBrainBackend
-from .backends.rynnbrain11 import RynnBrainBackend
-from .backends.transformers_grounding import TransformersGroundingBackend
-from .config import AppConfig, ModelConfig
-from .errors import UnknownModelError
+from .base import BaseBackend
+from .local.molmo2 import Molmo2Backend
+from .local.qwen35 import Qwen35Backend
+from .local.robobrain import RoboBrainBackend
+from .local.rynnbrain import RynnBrainBackend
+from .remote.openai import OpenAIBackend
+from ..core.config import AppConfig, ModelConfig
+from ..core.errors import UnknownModelError
 
 
 class ModelRegistry:
@@ -33,15 +31,13 @@ class ModelRegistry:
     def _create_backend(self, model_id: str, model: ModelConfig) -> BaseBackend:
         if model.backend == "molmo2":
             return Molmo2Backend(model, self.config)
-        if model.backend == "qwen3.7-plus":
-            return Qwen37PlusBackend(model)
-        if model.backend == "qwen3.5":
+        if model.backend == "qwen35":
             return Qwen35Backend(model, self.config)
-        if model.backend == "rynnbrain11":
+        if model.backend == "rynnbrain":
             return RynnBrainBackend(model, self.config)
-        if model.backend == "robobrain25":
+        if model.backend == "robobrain":
             return RoboBrainBackend(model, self.config)
-        if model.backend in ("openai_backend", "openai_compatible"):
+        if model.backend == "openai":
             return OpenAIBackend(model)
         raise UnknownModelError(f"Model '{model_id}' uses unsupported backend '{model.backend}'")
 

@@ -7,7 +7,7 @@ import re
 from typing import Any
 
 from .errors import ModelOutputParseError, PointOnlyOutputError
-from .schemas import GroundingResult
+from .contracts import GroundingResult
 from .validation import validate_grounding_result
 
 _FENCED_JSON = re.compile(r"```(?:json)?\s*(.*?)```", flags=re.IGNORECASE | re.DOTALL)

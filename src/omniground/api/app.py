@@ -14,9 +14,10 @@ from fastapi.responses import JSONResponse
 from PIL import Image, UnidentifiedImageError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from .backends.base import GenerationRequest
-from .config import load_config
-from .errors import (
+from ..backends.base import GenerationRequest
+from ..backends.registry import ModelRegistry
+from ..core.config import load_config
+from ..core.errors import (
     BackendInferenceError,
     BackendUnavailableError,
     InputValidationError,
@@ -24,7 +25,6 @@ from .errors import (
     RequestTooLargeError,
     UnsupportedImageError,
 )
-from .registry import ModelRegistry
 
 _LOG = logging.getLogger(__name__)
 _SUPPORTED_CONTENT_TYPES = {"image/jpeg", "image/jpg", "image/png"}

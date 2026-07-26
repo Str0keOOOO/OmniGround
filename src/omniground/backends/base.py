@@ -8,7 +8,7 @@ from threading import RLock
 
 from PIL import Image
 
-from ..schemas import GroundingResult
+from ..core.contracts import GroundingResult
 
 
 @dataclass(frozen=True)

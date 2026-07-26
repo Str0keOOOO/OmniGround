@@ -7,7 +7,7 @@ from typing import Any
 from pydantic import ValidationError
 
 from .errors import ModelOutputValidationError
-from .schemas import GroundingResult
+from .contracts import GroundingResult
 
 
 def validate_grounding_result(value: GroundingResult | dict[str, Any]) -> GroundingResult:
