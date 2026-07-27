@@ -50,8 +50,8 @@ cd OmniGround
 # Install dependencies
 pixi run setup
 
-# 下载需要的本地检查点（只选一个；笔记本优先 rynnbrain1.1-2b）
-pixi run download-checkpoints -- rynnbrain1.1-2b
+# 下载需要的本地检查点
+pixi run download-checkpoints -- qwen3.6-27b
 ```
 
 setup 会初始化已检出的子模块并检查基础依赖，不会安装所有可选的 VLM 依赖。运行 RynnBrain 1.1 或 RoboBrain 2.5 前，请额外安装一次本地推理依赖：
@@ -79,7 +79,7 @@ git submodule update --init --recursive
 运行本地模型前，请将 `<gpu-id>` 替换为要使用的物理 GPU 编号；该 GPU 会在进程内显示为 `cuda:0`。
 
 ```bash
-CUDA_VISIBLE_DEVICES=<gpu-id> pixi run demo -- --model-id rynnbrain1.1-2b --task-instruction "pick up the ipad"
+CUDA_VISIBLE_DEVICES=<gpu-id> pixi run demo -- --model-id qwen3.5-9b --task-instruction "put the green cup on the ipad"
 ```
 
 运行后端（模型在服务启动时选择，未指定时使用 `configs/models.yaml` 的 `default_model`）
@@ -106,9 +106,11 @@ CUDA_VISIBLE_DEVICES=<gpu-id> pixi run server -- --model-id qwen3.5-0.8b
 | rynnbrain1.1-9b（无法满足需求） | rynnbrain | local | RynnBrain 1.1 9B |
 | robobrain2.5-4b（无法满足需求） | robobrain | local | RoboBrain 2.5 4B |
 | robobrain2.5-8b-nv（受限暂时没有下载） | robobrain | local | RoboBrain 2.5 8B NVIDIA 变体 |
-| qwen3.5-9b（推荐） | qwen35 | local | Qwen/Qwen3.5-9B 本地多模态模型 |
-| qwen3.5-4b | qwen35 | local | Qwen/Qwen3.5-4B 本地多模态模型 |
-| qwen3.5-2b | qwen35 | local | Qwen/Qwen3.5-2B 本地多模态模型 |
-| qwen3.5-0.8b | qwen35 | local | Qwen/Qwen3.5-0.8B 本地多模态模型 |
+| qwen3.5-9b（无法生成逻辑） | qwen35 | local | Qwen/Qwen3.5-9B 本地多模态模型 |
+| qwen3.5-27b | qwen35 | local | Qwen/Qwen3.5-27B 本地多模态模型 |
+| qwen3.6-27b（推荐） | qwen35 | local | Qwen/Qwen3.6-27B 本地多模态模型 |
+| qwen3.5-4b（无法生成逻辑） | qwen35 | local | Qwen/Qwen3.5-4B 本地多模态模型 |
+| qwen3.5-2b（无法生成逻辑） | qwen35 | local | Qwen/Qwen3.5-2B 本地多模态模型 |
+| qwen3.5-0.8b（无法生成逻辑） | qwen35 | local | Qwen/Qwen3.5-0.8B 本地多模态模型 |
 | qwen3.7-plus | openai | api | 通过 OpenAI 兼容协议调用的 Qwen3.7-Plus VLM |
 |（通用 API） | openai | api | 其他兼容 OpenAI API 的多模态 chat/completions 端点 |

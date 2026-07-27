@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import logging
-import re
 import time
 from contextlib import nullcontext
 from pathlib import Path
@@ -13,52 +11,20 @@ from typing import Any
 from ..base import BaseBackend, GenerationRequest
 from ...core.config import AppConfig, ModelConfig
 from ...core.errors import BackendInferenceError, BackendUnavailableError, ModelOutputParseError
-from ...core.parsing import _extract_json_objects, parse_and_validate_last_valid_json
+from ...core.parsing import _extract_json_objects, parse_and_validate
 from ...core.contracts import GroundingResult
 from ...core.validation import validate_grounding_result
 
 
-_THINKING_BLOCK = re.compile(r"<think>.*?</think>\s*", flags=re.IGNORECASE | re.DOTALL)
-_LOG = logging.getLogger(__name__)
-
-_QWEN35_OUTPUT_CONTRACT = """
-Return exactly one JSON object and no Markdown or explanatory text. The object
-must have this schema:
-{"bboxes":[{"box_2d":[xmin,ymin,xmax,ymax],"label":"short_unique_label"}],"predicates":[]}
-Use zero or more bboxes. Coordinates are integers normalized to 0..1000 and
-must satisfy xmin < xmax and ymin < ymax. Every predicate argument must equal
-one of the bbox labels. Use `[xmin, ymin, xmax, ymax]` specifically; the
-server converts this Qwen-native order to OmniGround's public coordinate order.
-""".strip()
-
-_TASK_INSTRUCTION = re.compile(
-    r'Perform two tasks on this image based on the task instruction:\s*"(?P<task>.*?)"',
-    flags=re.IGNORECASE | re.DOTALL,
-)
-_HOLDING_TASK = re.compile(r"\b(?:pick\s+up|grab|hold|take)\b", flags=re.IGNORECASE)
-_TARGET_AFTER_ACTION = re.compile(
-    r"\b(?:pick\s+up|grab|hold|take)\s+(?P<target>.+?)(?:[.!?]|$)",
-    flags=re.IGNORECASE,
-)
-
-
-def _task_targets(raw_text: str) -> list[str]:
-    match = _TASK_INSTRUCTION.search(raw_text)
-    task = match.group("task") if match else raw_text
-    target_match = _TARGET_AFTER_ACTION.search(task)
-    if not target_match:
-        return []
-    targets = []
-    for part in re.split(r"\s*(?:,|and|&)\s*", target_match.group("target")):
-        normalized = re.sub(r"^(?:the|a|an)\s+", "", part.strip().lower())
-        targets.append(normalized.replace(" ", "_"))
-    return targets
-
-
 def parse_qwen35_grounding(raw_text: str, task_prompt: str = "") -> GroundingResult:
-    """Convert Qwen3.5's native ``[xmin, ymin, xmax, ymax]`` boxes to OmniGround."""
-    # Extract the outer payload before schema validation so we can repair the
-    # common small-model error of repeating a label for multiple instances.
+    """Parse a Qwen3.5 response using OmniGround's public contract.
+
+    Qwen3.5 receives the same TiPToP prompt, but its native decoder emits box
+    coordinates in ``[xmin, ymin, xmax, ymax]`` order. Convert those boxes to
+    OmniGround's public ``[ymin, xmin, ymax, xmax]`` order. ``task_prompt`` is
+    retained for backwards-compatible calls.
+    """
+    del task_prompt
     try:
         payloads = _extract_json_objects(raw_text, allow_multiple_fences=True)
         payload = next(
@@ -66,40 +32,43 @@ def parse_qwen35_grounding(raw_text: str, task_prompt: str = "") -> GroundingRes
             if "bboxes" in payload and "predicates" in payload
         )
     except (ModelOutputParseError, StopIteration):
-        payload = parse_and_validate_last_valid_json(raw_text).model_dump(mode="json")
+        return parse_and_validate(raw_text)
 
     labels_seen: dict[str, int] = {}
     original_to_unique: dict[str, list[str]] = {}
     for bbox in payload["bboxes"]:
+        xmin, ymin, xmax, ymax = bbox["box_2d"]
+        bbox["box_2d"] = [ymin, xmin, ymax, xmax]
         original_label = str(bbox["label"]).strip()
         occurrence = labels_seen.get(original_label, 0) + 1
         labels_seen[original_label] = occurrence
         unique_label = original_label if occurrence == 1 else f"{original_label}_{occurrence}"
         bbox["label"] = unique_label
         original_to_unique.setdefault(original_label, []).append(unique_label)
-        xmin, ymin, xmax, ymax = bbox["box_2d"]
-        bbox["box_2d"] = [ymin, xmin, ymax, xmax]
 
-    instruction_source = task_prompt or raw_text
-    if _HOLDING_TASK.search(instruction_source):
-        targets = _task_targets(instruction_source)
-        target_labels = [
-            label
-            for original, unique_labels in original_to_unique.items()
-            if any(target in original.lower().replace(" ", "_") for target in targets)
-            for label in unique_labels[:1]
+    # Keep predicate references valid after duplicate labels are disambiguated.
+    for predicate in payload["predicates"]:
+        predicate["args"] = [
+            original_to_unique.get(argument, [argument])[0]
+            for argument in predicate["args"]
         ]
-        payload["predicates"] = [{"name": "holding", "args": [label]} for label in target_labels]
-    else:
-        for predicate in payload["predicates"]:
-            predicate["args"] = [
-                original_to_unique.get(argument, [argument])[0] for argument in predicate["args"]
-            ]
     return validate_grounding_result(payload)
 
 
 class Qwen35Backend(BaseBackend):
     """Run a configured Qwen3.5 checkpoint with its native chat template."""
+
+    _GROUNDING_CONSTRAINTS = """
+
+IMPORTANT OUTPUT CONSTRAINTS:
+- The table surface is implicit and must never appear in bboxes or predicates.
+- Never use "table_surface" as a predicate argument.
+- Only generate predicates explicitly required by the task instruction; do not
+  add on(object, table_surface) relations merely because objects rest on the table.
+- Every predicate argument must exactly match, character-for-character, a label
+  present in the bboxes array.
+- Never invent aliases, synonyms, or labels that are absent from bboxes.
+""".strip()
 
     def __init__(self, config: ModelConfig, app_config: AppConfig) -> None:
         super().__init__()
@@ -167,8 +136,8 @@ class Qwen35Backend(BaseBackend):
 
     @staticmethod
     def _render_prompt(prompt: str) -> str:
-        """Keep TiPToP's task, while requiring OmniGround's public JSON schema."""
-        return f"{prompt}\n\n{_QWEN35_OUTPUT_CONTRACT}"
+        """Use the same TiPToP prompt sent to API-backed models."""
+        return f"{prompt.rstrip()}\n\n{Qwen35Backend._GROUNDING_CONSTRAINTS}"
 
     def _chat_inputs(self, request: GenerationRequest) -> Any:
         assert self._processor is not None
@@ -237,20 +206,12 @@ class Qwen35Backend(BaseBackend):
                 raise BackendInferenceError(f"Qwen3.5 local inference failed: {exc.__class__.__name__}") from exc
 
         self.last_raw_text = raw_text
-        cleaned_text = _THINKING_BLOCK.sub("", raw_text).strip()
-        try:
-            phase_started_at = time.perf_counter()
-            result = parse_qwen35_grounding(cleaned_text, request.prompt)
-            timing["parse_and_validate"] = time.perf_counter() - phase_started_at
-            timing["backend_total"] = time.perf_counter() - backend_started_at
-            self.last_timing = timing
-            return result
-        except ModelOutputParseError:
-            _LOG.warning(
-                "Qwen3.5 raw model output (parse failed):\n---BEGIN RAW OUTPUT---\n%s\n---END RAW OUTPUT---",
-                cleaned_text,
-            )
-            raise
+        phase_started_at = time.perf_counter()
+        result = parse_qwen35_grounding(raw_text, request.prompt)
+        timing["parse_and_validate"] = time.perf_counter() - phase_started_at
+        timing["backend_total"] = time.perf_counter() - backend_started_at
+        self.last_timing = timing
+        return result
 
     def unload(self) -> None:
         self._model = None

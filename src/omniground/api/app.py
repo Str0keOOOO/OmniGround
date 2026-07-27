@@ -127,6 +127,7 @@ def create_app(
         request_id = uuid.uuid4().hex
         started_at = time.perf_counter()
         image_object: Image.Image | None = None
+        backend = None
         try:
             content_length = request.headers.get("content-length")
             if content_length:
@@ -188,6 +189,14 @@ def create_app(
                 elapsed_ms,
                 len(prompt),
             )
+            if backend is not None and backend.last_raw_text is not None:
+                return JSONResponse(
+                    status_code=exc.status_code,
+                    content={
+                        "error": {"code": exc.code, "message": exc.message},
+                        "raw_model_output": backend.last_raw_text,
+                    },
+                )
             raise
         except Exception as exc:
             _LOG.exception("generate failed request_id=%s model_id=%s", request_id, selected_default)
