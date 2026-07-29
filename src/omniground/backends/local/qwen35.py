@@ -65,6 +65,11 @@ IMPORTANT OUTPUT CONSTRAINTS:
 - Never use "table_surface" as a predicate argument.
 - Only generate predicates explicitly required by the task instruction; do not
   add on(object, table_surface) relations merely because objects rest on the table.
+- Use task-minimal detection: return only the objects needed as arguments of
+  those required predicates. Do not enumerate other visible objects, even when
+  they are easy to recognize.
+- The bboxes array must contain exactly the unique objects named in the
+  predicates array; it must not contain any additional boxes.
 - Every predicate argument must exactly match, character-for-character, a label
   present in the bboxes array.
 - Never invent aliases, synonyms, or labels that are absent from bboxes.
