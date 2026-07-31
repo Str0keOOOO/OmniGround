@@ -1,6 +1,6 @@
 # Copy this file to models.yaml and adjust paths/endpoints for your deployment.
 # Never put an API key in this file; use the environment variable named below.
-default_model: qwen3.7-plus
+default_model: qwen3.5-9b
 
 models:
   molmo2-er:
